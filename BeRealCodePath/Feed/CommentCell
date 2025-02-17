@@ -1,0 +1,27 @@
+//
+//  CommentCell.swift
+//  BeRealCodePath
+//
+//  Created by Cristian Gonzalez on 2/13/25.
+//
+import SwiftUI
+
+struct CommentCellView: View {
+    let comment: Comment
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(comment.user?.username ?? "Unknown")
+                .font(.headline)
+                .foregroundColor(.white)
+            
+            Text(comment.text ?? "")
+                .font(.body)
+                .foregroundColor(.gray)
+        }
+        .padding()
+        .background(Color.black)
+        .cornerRadius(10)
+        .padding(.horizontal)
+    }
+}
