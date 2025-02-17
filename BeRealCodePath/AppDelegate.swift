@@ -28,34 +28,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             serverURL: URL(string: "https://parseapi.back4app.com")!
         )
         
-         
-        
         window = UIWindow(frame: UIScreen.main.bounds)
-            guard let window = window else {
-                print("❌ ERROR: Window is nil")
-                return false
-            }
-            // ✅ Check if user is logged in
-            if User.current != nil {
-                print("✅ User is logged in, navigating to FeedViewController")
-                
-                // ✅ Wrap FeedViewController in a UINavigationController
-                let feedVC = FeedViewController()
-                let navigationController = UINavigationController(rootViewController: feedVC)
-                window.rootViewController = navigationController
-            } else {
-                print("🔹 No user found, showing ContentView (Login Screen)")
-                
-                // ✅ Show SwiftUI ContentView as Root using UIHostingController
-                let hostingController = UIHostingController(rootView: ContentView())
-                window.rootViewController = hostingController
-            }
-        window.makeKeyAndVisible()
-        let feedVC = FeedViewController()
-        let navigationController = UINavigationController(rootViewController: feedVC)
-        window.rootViewController = navigationController
-        window.makeKeyAndVisible()
+        guard let window = window else {
+            print("❌ ERROR: Window is nil")
+            return false
+        }
 
+        // ✅ Check if user is logged in
+        if User.current != nil {
+            print("✅ User is logged in, navigating to FeedViewController")
+            
+            // ✅ Instantiate SwiftUI FeedView with the same file name
+            let feedView = FeedViewController()
+            let hostingController = UIHostingController(rootView: feedView)
+            window.rootViewController = hostingController
+        } else {
+            print("🔹 No user found, showing ContentView (Login Screen)")
+            
+            // ✅ Show SwiftUI ContentView as Root
+            let hostingController = UIHostingController(rootView: ContentView())
+            window.rootViewController = hostingController
+        }
+
+        window.makeKeyAndVisible()
         saveTestParseObject()
         return true
     }
