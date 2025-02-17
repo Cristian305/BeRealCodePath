@@ -10,7 +10,266 @@ class PostViewController: UIViewController {
         label.text = "Create Post"
         label.textColor = .white
         label.font = UIFont.boldSystemFont(ofSize: 24)
-        label.textAlignment = .center
+        label.textAlignment = //
+//  PostView.swift
+//  BeRealCodePath
+//
+//  Created by Cristian Gonzalez on 2/4/25.
+//
+import SwiftUI
+import ParseSwift
+import CoreLocation
+import PhotosUI
+import Foundation
+
+struct PostViewController: View {
+    @State private var caption: String = ""
+    @State private var selectedImage: UIImage?
+    @State private var isShowingImagePicker = false
+    @State private var isShowingPhotoLibrary = false
+    @State private var currentLocation: CLLocation?
+    @State private var showAlert = false
+    @State private var alertMessage = ""
+    @Environment(\.dismiss) var dismiss
+    
+    private let locationManager = CLLocationManager()
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.black.edgesIgnoringSafeArea(.all)
+                
+                VStack(spacing: 20) {
+                    // Title
+                    Text("Create Post")
+                        .font(.largeTitle)
+                        .bold()
+                        .foregroundColor(.white)
+
+                    // Caption Field
+                    TextField("Write a caption...", text: $caption)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .padding()
+                        .background(Color.gray.opacity(0.2))
+                        .cornerRadius(10)
+                        .foregroundColor(.black)
+
+                    // Image Preview
+                    if let selectedImage = selectedImage {
+                        Image(uiImage: selectedImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 250)
+                            .cornerRadius(10)
+                    } else {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(height: 250)
+                            .cornerRadius(10)
+                            .overlay(Text("No Image Selected").foregroundColor(.white))
+                    }
+
+                    // Capture Image Button
+                    HStack {
+                        Button(action: {
+                            isShowingImagePicker = true
+                        }) {
+                            Text("📷 Take Photo")
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.white)
+                                .foregroundColor(.black)
+                                .cornerRadius(10)
+                        }
+
+                        Button(action: {
+                            isShowingPhotoLibrary = true
+                        }) {
+                            Text("🖼️ Upload Photo")
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.white)
+                                .foregroundColor(.black)
+                                .cornerRadius(10)
+                        }
+                    }
+
+                    // Share Button
+                    Button(action: sharePost) {
+                        Text("📤 Share Post")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+
+                    Spacer()
+                }
+                .padding()
+            }
+            .onAppear(perform: requestLocation)
+            .alert(isPresented: $showAlert) {
+                Alert(title: Text("Error"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
+            }
+            .fullScreenCover(isPresented: $isShowingImagePicker) {
+                ImagePicker(image: $selectedImage, sourceType: .camera)
+            }
+            .fullScreenCover(isPresented: $isShowingPhotoLibrary) {
+                ImagePicker(image: $selectedImage, sourceType: .photoLibrary)
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: {
+                        dismiss()
+                    }) {
+                        HStack {
+                            Image(systemName: "arrow.left")
+                            Text("Back")
+                        }
+                        .foregroundColor(.white)
+                    }
+                }
+            }
+        }
+    }
+
+    // Share Post
+    private func sharePost() {
+        guard let selectedImage = selectedImage else {
+            alertMessage = "Please select an image."
+            showAlert = true
+            return
+        }
+
+        guard let imageData = selectedImage.jpegData(compressionQuality: 0.8) else {
+            alertMessage = "Failed to process image."
+            showAlert = true
+            return
+        }
+
+        let imageFile = ParseFile(name: "image.jpg", data: imageData)
+
+        var post = Post()
+        post.imageFile = imageFile
+        post.caption = caption
+
+        if let location = currentLocation {
+            post.location = ["latitude": location.coordinate.latitude, "longitude": location.coordinate.longitude]
+        }
+
+        // Save the post
+        post.save { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    print("✅ Post shared successfully!")
+
+                    // Update the user's lastPostedDate
+                    if var currentUser = User.current {
+                        let now = Date()
+                        currentUser.lastPostedDate = now
+
+                        currentUser.save { saveResult in
+                            switch saveResult {
+                            case .success:
+                                print("✅ lastPostedDate updated to \(now)")
+
+                                // Force refresh of User.current to sync with server
+                                User.current?.fetch { fetchResult in
+                                    switch fetchResult {
+                                    case .success:
+                                        print("🔄 User refreshed successfully!")
+                                        NotificationCenter.default.post(name: .didPostNewContent, object: nil)
+                                        self.dismiss()
+                                    case .failure(let error):
+                                        print("❌ Failed to refresh user: \(error.localizedDescription)")
+                                        self.dismiss()
+                                    }
+                                }
+
+                            case .failure(let error):
+                                print("❌ Failed to update lastPostedDate: \(error.localizedDescription)")
+                                self.alertMessage = "Failed to update lastPostedDate."
+                                self.showAlert = true
+                            }
+                        }
+                    } else {
+                        print("⚠️ No current user found.")
+                        self.dismiss()
+                    }
+
+                case .failure(let error):
+                    alertMessage = error.localizedDescription
+                    showAlert = true
+                }
+            }
+        }
+    }
+
+    // Request Location Permissions
+    private func requestLocation() {
+        locationManager.delegate = LocationDelegate(location: $currentLocation)
+        locationManager.requestWhenInUseAuthorization()
+        locationManager.startUpdatingLocation()
+    }
+}
+
+// Image Picker
+struct ImagePicker: UIViewControllerRepresentable {
+    @Binding var image: UIImage?
+    var sourceType: UIImagePickerController.SourceType
+
+    class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+        var parent: ImagePicker
+
+        init(_ parent: ImagePicker) {
+            self.parent = parent
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController,
+                                   didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            if let image = info[.editedImage] as? UIImage {
+                parent.image = image
+            } else if let image = info[.originalImage] as? UIImage {
+                parent.image = image
+            }
+            picker.dismiss(animated: true)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.delegate = context.coordinator
+        picker.sourceType = sourceType
+        picker.allowsEditing = true
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+}
+
+// Location Delegate to update location
+class LocationDelegate: NSObject, CLLocationManagerDelegate {
+    var location: Binding<CLLocation?>
+
+    init(location: Binding<CLLocation?>) {
+        self.location = location
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        location.wrappedValue = locations.last
+    }
+}
+
+#Preview {
+    PostViewController()
+}
+.center
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
