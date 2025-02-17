@@ -1,0 +1,110 @@
+import SwiftUI
+import ParseSwift
+
+struct CommentViewController: View {
+    let post: Post
+    @State private var comments: [Comment] = []
+    @State private var newCommentText: String = ""
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.black.edgesIgnoringSafeArea(.all)
+
+                VStack {
+                    Text("Comments")
+                        .font(.largeTitle)
+                        .bold()
+                        .foregroundColor(.white)
+                        .padding()
+
+                    // Display comments
+                    List(comments) { comment in
+                        VStack(alignment: .leading) {
+                            Text("👤 \(comment.user?.username ?? "Unknown")")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                            Text(comment.text ?? "")
+                                .foregroundColor(.gray)
+                        }
+                        .listRowBackground(Color.black)
+                    }
+                    .scrollContentBackground(.hidden) // Ensures the list background is also black
+                    .onAppear {
+                        fetchComments()
+                    }
+
+                    // Add comment section
+                    HStack {
+                        TextField("Add a comment...", text: $newCommentText)
+                            .padding()
+                            .background(Color.white)
+                            .cornerRadius(10)
+                            .foregroundColor(.black)
+
+                        Button(action: addComment) {
+                            Text("Send")
+                                .foregroundColor(.white)
+                                .padding()
+                                .background(Color.blue)
+                                .cornerRadius(10)
+                        }
+                    }
+                    .padding()
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "arrow.left")
+                            .foregroundColor(.white)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Fetch Comments
+    private func fetchComments() {
+        let query = Comment.query()
+            .where("postId" == post.objectId ?? "")
+            .include("user") // Make sure to include user for username
+            .order([.descending("createdAt")])
+
+        query.find { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let fetchedComments):
+                    self.comments = fetchedComments
+                    print("✅ Fetched \(fetchedComments.count) comments")
+                case .failure(let error):
+                    print("❌ Failed to fetch comments: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    // MARK: - Add Comment
+    private func addComment() {
+        guard !newCommentText.isEmpty else { return }
+
+        var comment = Comment()
+        comment.postId = post.objectId
+        comment.text = newCommentText
+        comment.user = User.current
+
+        comment.save { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let savedComment):
+                    comments.insert(savedComment, at: 0)
+                    newCommentText = ""
+                    print("✅ Comment added: \(savedComment)")
+                case .failure(let error):
+                    print("❌ Failed to add comment: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+}
