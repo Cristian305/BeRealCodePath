@@ -8,19 +8,24 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var isShowingLogin = false
+    @State private var isShowingSignUp = false
+
     var body: some View {
         ZStack {
             Color.black.edgesIgnoringSafeArea(.all)
 
-            VStack {
+            VStack(spacing: 20) {
+                // Title
                 Text("BeReal.")
                     .font(.largeTitle)
                     .fontWeight(.bold)
                     .foregroundColor(.white)
                     .padding(.bottom, 40)
 
+                // Sign In Button
                 Button(action: {
-                    presentLoginViewController()
+                    isShowingLogin = true
                 }) {
                     Text("Sign In")
                         .font(.title2)
@@ -31,9 +36,13 @@ struct ContentView: View {
                         .cornerRadius(10)
                 }
                 .padding(.horizontal, 40)
+                .fullScreenCover(isPresented: $isShowingLogin) {
+                    LoginViewController()
+                }
 
+                // Sign Up Button
                 Button(action: {
-                    presentSignUpViewController()
+                    isShowingSignUp = true
                 }) {
                     Text("Sign Up")
                         .font(.title2)
@@ -45,37 +54,15 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 40)
                 .padding(.top, 10)
+                .fullScreenCover(isPresented: $isShowingSignUp) {
+                    SignUpViewController()
+                }
             }
+            .padding()
         }
     }
-}
-
-// ✅ Helper functions to present view controllers manually
-func presentLoginViewController() {
-    guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-          let keyWindow = windowScene.windows.first,
-          let rootVC = keyWindow.rootViewController else {
-        return
-    }
-    
-    let loginVC = LoginViewController()
-    loginVC.modalPresentationStyle = .fullScreen
-    rootVC.present(loginVC, animated: true)
-}
-
-func presentSignUpViewController() {
-    guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-          let keyWindow = windowScene.windows.first,
-          let rootVC = keyWindow.rootViewController else {
-        return
-    }
-    
-    let signUpVC = SignUpViewController()
-    signUpVC.modalPresentationStyle = .fullScreen
-    rootVC.present(signUpVC, animated: true)
 }
 
 #Preview {
     ContentView()
 }
-
